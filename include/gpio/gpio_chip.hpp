@@ -4,7 +4,8 @@
 
 #include <string>
 #include <vector>
-#include <gpio/gpio_line.hpp>
+#include <memory>
+#include <gpio/gpio_pin.hpp>
 
 
 
@@ -16,18 +17,34 @@ namespace gpio {
 class GPIOChip 
 {
 private:
-    std::string _name;
     int _handler;
-    std::vector<GPIOLine> _lines;
+
+private:
+    std::string _name;
+    std::string _label;
+    unsigned short _lines;
+
+private:
+    std::vector<std::shared_ptr<GPIOPin>> _pins;
 
 public:
     GPIOChip();
     ~GPIOChip();
 
 public:
+    std::string Name();
+    std::string Label();
+    unsigned short Lines();
+
+public:
     void Open(std::string device);
     void Close();
     bool IsOpen();
+
+    int GetHandler();
+
+public:
+    GPIOPin& Pin(unsigned short num);
 };
 
 

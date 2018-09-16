@@ -1,7 +1,8 @@
 #ifndef __RASPLIB_HPP__
 #define __RASPLIB_HPP__
 
-#include "gpio/gpio_line.hpp"
+#include "exception/exception.hpp"
+#include "gpio/gpio_pin.hpp"
 #include "gpio/gpio_chip.hpp"
 
 
