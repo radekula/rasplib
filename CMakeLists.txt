@@ -18,6 +18,6 @@ set (BUILD_DIR "build")
 
 include_directories (${CMAKE_CURRENT_LIST_DIR}/include)
 
-file (GLOB LIB_RASPLIB_SRC "src/gpio/*.cxx")
+file (GLOB LIB_RASPLIB_SRC "src/gpio/*.cxx" "src/display/*.cxx")
 add_library (rasplib SHARED ${LIB_RASPLIB_SRC})
 add_library (rasplib_static STATIC ${LIB_RASPLIB_SRC})
