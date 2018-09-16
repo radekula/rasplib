@@ -1,0 +1,3 @@
+build
+test/basic/basic
+test/basic/*.o

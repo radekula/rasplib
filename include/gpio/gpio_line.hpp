@@ -1,4 +1,4 @@
-#ifndev __RASPLIB_GPIO_LINE_HPP__
+#ifndef __RASPLIB_GPIO_LINE_HPP__
 #define __RASPLIB_GPIO_LINE_HPP__
 
 
@@ -19,5 +19,8 @@ public:
 
 
 
+
+}
+}
 
 #endif

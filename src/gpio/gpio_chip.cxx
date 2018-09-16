@@ -1,9 +1,10 @@
-#include <gpio_chip.hpp>
+#include <gpio/gpio_chip.hpp>
 
 
-std::string _name;
-int _handler;
-std::vector<GPIOLine> _lines;
+namespace rasplib {
+namespace gpio {
+
+
 
 
 GPIOChip::GPIOChip()
@@ -34,10 +35,16 @@ void GPIOChip::Close()
 };
 
 
-void GPIOChip::IsOpen()
+bool GPIOChip::IsOpen()
 {
     if(_handler != 0)
         return true;
 
     return false;
 };
+
+
+
+
+}
+}

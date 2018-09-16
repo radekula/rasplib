@@ -1,10 +1,10 @@
-#ifndev __RASPLIB_GPIO_CHIP_HPP__
+#ifndef __RASPLIB_GPIO_CHIP_HPP__
 #define __RASPLIB_GPIO_CHIP_HPP__
 
 
 #include <string>
 #include <vector>
-#include <gpio_line.hpp>
+#include <gpio/gpio_line.hpp>
 
 
 
@@ -32,5 +32,7 @@ public:
 
 
 
+}
+}
 
 #endif
