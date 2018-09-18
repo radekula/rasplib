@@ -20,14 +20,16 @@
 
 
 
-#ifndef __RASPLIB_GPIO_CHIP_HPP__
-#define __RASPLIB_GPIO_CHIP_HPP__
+#ifndef __RASPLIB_GPIO_PIN_HPP__
+#define __RASPLIB_GPIO_PIN_HPP__
 
 
-#include <string>
-#include <vector>
+
+
 #include <memory>
-#include <gpio/gpio_pin.hpp>
+#include <functional>
+#include <linux/gpio.h>
+
 
 
 
@@ -35,39 +37,50 @@ namespace rasplib {
 namespace gpio {
 
 
+class GPIODevice;
 
-class GPIODevice 
+
+
+typedef enum {
+    RISING = 1,
+    FALLING
+} Edge;
+
+
+
+
+
+class GPIOPin
 {
 private:
-    int _handler;
+    GPIODevice *_device;
+    short _line;
 
 private:
-    std::string _name;
-    std::string _label;
-    unsigned short _lines;
-
-private:
-    std::vector<std::shared_ptr<GPIOPin>> _pins;
+    std::function<void(GPIOPin*, int)> _handle_fun;
 
 public:
-    GPIODevice();
-    ~GPIODevice();
+    GPIOPin();
+    GPIOPin(GPIODevice *gpio_device, unsigned short line);
+    ~GPIOPin();
 
 public:
-    std::string name();
-    std::string label();
-    unsigned short lines();
+    void set_device(GPIODevice *gpio_device);
+    GPIODevice* get_device();
 
 public:
-    void open(std::string device);
-    void close();
-    bool is_open();
-
-    int get_handler();
+    void map_to_line(unsigned short line);
+    void set_function(std::function<void(GPIOPin*, int)> fun);
 
 public:
-    GPIOPin& pin(unsigned short num);
+    void set_state(bool state);
+    bool get_state();
+    short get_line();
+
+public:
+    void handle_interrupt(int edge);
 };
+
 
 
 

@@ -1,4 +1,3 @@
 build
 *.o
-examples/basic/basic
-examples/lcd/lcd
+*.bin

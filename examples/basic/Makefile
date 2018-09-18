@@ -1,3 +1,3 @@
 
 all:
-	g++ -I../../include -L../../build -lrasplib main.cpp -o basic
+	g++ -I../../include -L../../build -lrasplib -pthread main.cpp -o basic.bin

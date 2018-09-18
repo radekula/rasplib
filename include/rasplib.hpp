@@ -24,8 +24,9 @@
 #define __RASPLIB_HPP__
 
 #include "exception/exception.hpp"
-#include "gpio/gpio_pin.hpp"
-#include "gpio/gpio_device.hpp"
+#include "gpio/pin.hpp"
+#include "gpio/device.hpp"
+#include "gpio/interrupts.hpp"
 #include "display/alphanumeric.hpp"
 
 

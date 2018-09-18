@@ -20,15 +20,14 @@
 
 
 
-#ifndef __RASPLIB_GPIO_PIN_HPP__
-#define __RASPLIB_GPIO_PIN_HPP__
+#ifndef __RASPLIB_GPIO_DEVICE_HPP__
+#define __RASPLIB_GPIO_DEVICE_HPP__
 
 
-
-
+#include <string>
+#include <vector>
 #include <memory>
-#include <linux/gpio.h>
-
+#include <gpio/pin.hpp>
 
 
 
@@ -36,33 +35,39 @@ namespace rasplib {
 namespace gpio {
 
 
-class GPIODevice;
 
-
-class GPIOPin
+class GPIODevice 
 {
 private:
-    GPIODevice *_gpio_device;
-    short _line;
-    gpiohandle_request _req;
+    int _handler;
 
 private:
-    void release();
+    std::string _name;
+    std::string _label;
+    unsigned short _lines;
+
+private:
+    std::vector<std::shared_ptr<GPIOPin>> _pins;
 
 public:
-    GPIOPin();
-    GPIOPin(GPIODevice *gpio_device, unsigned short line);
-    ~GPIOPin();
+    GPIODevice();
+    ~GPIODevice();
 
 public:
-    void set_gpio(GPIODevice *gpio_device);
-    void map_to_line(unsigned short line);
+    std::string name();
+    std::string label();
+    unsigned short lines();
 
 public:
-    void set_state(bool state);
-    bool get_state();
+    void open(std::string device);
+    void close();
+    bool is_open();
+
+    int get_handler();
+
+public:
+    GPIOPin& pin(unsigned short num);
 };
-
 
 
 

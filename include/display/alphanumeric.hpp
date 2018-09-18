@@ -26,7 +26,7 @@
 #include <bitset>
 #include <memory>
 #include <map>
-#include <gpio/gpio_device.hpp>
+#include <gpio/device.hpp>
 
 
 

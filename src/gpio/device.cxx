@@ -28,7 +28,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <exception/exception.hpp>
-#include <gpio/gpio_device.hpp>
+#include <gpio/device.hpp>
 
 
 namespace rasplib {

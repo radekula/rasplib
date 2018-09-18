@@ -30,6 +30,10 @@
 #define INVALID_PIN_REQUEST             10
 #define REQUEST_ERROR                   51
 #define LINE_WRITE_ERROR                52
+#define SIGNAL_MASK_CREATE_ERROR        101
+#define SIGNAL_HANDLER_CREATE_ERROR     102
+#define INTERRUPTS_HANDLER_NOT_EXISTS   201
+#define INTERRUPT_NOT_FOUND             202
 
 
 
