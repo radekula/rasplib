@@ -1,13 +1,34 @@
+/*
+    Rasplib - library for handling Raspberry Pi's GPIO and connected devices
+    Copyright (C) 2018  Radosław Ulatowski
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+
+
+
 #include <sys/ioctl.h>
-#include <linux/gpio.h>
 #include <unistd.h>
-#include <memory.h>
+#include <linux/gpio.h>
 #include <string>
+#include <cstring>
 #include <exception/exception.hpp>
-#include <gpio/gpio_chip.hpp>
+#include <gpio/gpio_device.hpp>
 
 
-#include <iostream>
 
 namespace rasplib {
 namespace gpio {
@@ -18,19 +39,19 @@ namespace gpio {
 GPIOPin::GPIOPin()
 {
     _line = -1;
-    _chip = 0;
+    _gpio_device = 0;
 };
 
 
 
 
-GPIOPin::GPIOPin(GPIOChip *chip, unsigned short line)
+GPIOPin::GPIOPin(GPIODevice *gpio_device, unsigned short line)
 {
     _line = -1;
-    _chip = 0;
+    _gpio_device = 0;
 
-    SetChip(chip);
-    MapToLine(line);
+    set_gpio(gpio_device);
+    map_to_line(line);
 };
 
 
@@ -38,23 +59,23 @@ GPIOPin::GPIOPin(GPIOChip *chip, unsigned short line)
 
 GPIOPin::~GPIOPin()
 {
-    Release();
+    release();
 };
 
 
 
 
-void GPIOPin::SetChip(GPIOChip *chip)
+void GPIOPin::set_gpio(GPIODevice *device)
 {
-    _chip = chip;
+    _gpio_device = device;
 };
 
 
 
-void GPIOPin::MapToLine(unsigned short line)
+void GPIOPin::map_to_line(unsigned short line)
 {
     if(_line >= 0)
-        Release();
+        release();
 
     _line = (short) line;
 };
@@ -62,15 +83,15 @@ void GPIOPin::MapToLine(unsigned short line)
 
 
 
-void GPIOPin::SetState(bool state)
+void GPIOPin::set_state(bool state)
 {
-    if(!_chip)
-        throw rasplib::exception::Exception(51, "Chip reference is not available");
+    if(!_gpio_device)
+        throw rasplib::Exception(INVALID_DEVICE, "Device reference is not available");
 
-    Release();
+    release();
 
     struct gpiohandle_data data;
-    memset(&data, 0, sizeof(data));
+    std::memset(&data, 0, sizeof(data));
 
     _req.lineoffsets[0] = _line;
     _req.lines = 1;
@@ -78,33 +99,55 @@ void GPIOPin::SetState(bool state)
 
     int status = 0;
 
-    status = ioctl(_chip->GetHandler(), GPIO_GET_LINEHANDLE_IOCTL, &_req);
+    status = ioctl(_gpio_device->get_handler(), GPIO_GET_LINEHANDLE_IOCTL, &_req);
     if(status < 0)
-        throw rasplib::exception::Exception(52, "Unable to get gpio request");
+        throw rasplib::Exception(REQUEST_ERROR, "Unable to get gpio request");
 
     data.values[0] = state;
 
     status = ioctl(_req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data);
     if(status < 0)
-        throw rasplib::exception::Exception(53, "Unable to write new line state to gpio device");
+        throw rasplib::Exception(LINE_WRITE_ERROR, "Unable to write new line state to gpio device");
 };
 
 
 
 
-bool GPIOPin::GetState()
+bool GPIOPin::get_state()
 {
-    return false;
+    if(!_gpio_device)
+        throw rasplib::Exception(INVALID_DEVICE, "Device reference is not available");
+
+    release();
+
+    struct gpiohandle_data data;
+    std::memset(&data, 0, sizeof(data));
+
+    _req.lineoffsets[0] = _line;
+    _req.lines = 1;
+    _req.flags = GPIOHANDLE_REQUEST_OUTPUT;
+
+    int status = 0;
+
+    status = ioctl(_gpio_device->get_handler(), GPIO_GET_LINEHANDLE_IOCTL, &_req);
+    if(status < 0)
+        throw rasplib::Exception(REQUEST_ERROR, "Unable to get gpio request");
+
+    status = ioctl(_req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
+    if(status < 0)
+        throw rasplib::Exception(LINE_WRITE_ERROR, "Unable to write new line state to gpio device");
+
+    return data.values[0];
 };
 
 
 
-void GPIOPin::Release()
+void GPIOPin::release()
 {
     if(_req.fd)
         close(_req.fd);
 
-    memset(&_req, 0, sizeof(_req));
+    std::memset(&_req, 0, sizeof(_req));
 };
 
 }

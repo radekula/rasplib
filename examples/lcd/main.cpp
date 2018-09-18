@@ -6,26 +6,26 @@
 
 
 
-void init_gpio(rasplib::gpio::GPIOChip &gpio)
+void init_gpio(rasplib::gpio::GPIODevice &gpio)
 {
     // data pins
-    gpio.Pin(0).MapToLine(26);
-    gpio.Pin(1).MapToLine(19);
-    gpio.Pin(2).MapToLine(13);
-    gpio.Pin(3).MapToLine(6);
-    gpio.Pin(4).MapToLine(5);
-    gpio.Pin(5).MapToLine(11);
-    gpio.Pin(6).MapToLine(9);
-    gpio.Pin(7).MapToLine(10);
+    gpio.pin(0).map_to_line(26);
+    gpio.pin(1).map_to_line(19);
+    gpio.pin(2).map_to_line(13);
+    gpio.pin(3).map_to_line(6);
+    gpio.pin(4).map_to_line(5);
+    gpio.pin(5).map_to_line(11);
+    gpio.pin(6).map_to_line(9);
+    gpio.pin(7).map_to_line(10);
 
     // control pins
-    gpio.Pin(8).MapToLine(21);
-    gpio.Pin(9).MapToLine(20);
+    gpio.pin(8).map_to_line(21);
+    gpio.pin(9).map_to_line(20);
 };
 
 
 
-void init_lcd(rasplib::display::Alphanumeric &lcd, rasplib::gpio::GPIOChip &gpio)
+void init_lcd(rasplib::display::Alphanumeric &lcd, rasplib::gpio::GPIODevice &gpio)
 {
     std::vector<unsigned short> data_pins;
     data_pins.push_back(0);
@@ -40,10 +40,10 @@ void init_lcd(rasplib::display::Alphanumeric &lcd, rasplib::gpio::GPIOChip &gpio
     unsigned short command_pin = 8;
     unsigned short send_pin = 9;
 
-    lcd.Init(&gpio, command_pin, send_pin, data_pins);
-    lcd.SetMode(2, false, false);
+    lcd.init(&gpio, command_pin, send_pin, data_pins);
+    lcd.set_mode(2, false, false);
 
-    lcd.Clean();
+    lcd.clean();
 };
 
 
@@ -51,9 +51,9 @@ int main(int argc, char *argv[])
 {
     try
     {
-        rasplib::gpio::GPIOChip gpio;
+        rasplib::gpio::GPIODevice gpio;
 
-        gpio.Open("/dev/gpiochip0");
+        gpio.open("/dev/gpiochip0");
         init_gpio(gpio);
 
         rasplib::display::Alphanumeric lcd(16, 2);
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
         int loop = 0;
         while(loop < 10)
         {
-            lcd.Print("Raspberry Pi 3B+\n"
+            lcd.print("Raspberry Pi 3B+\n"
                       " Test display 1 ");
 
             std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -72,22 +72,22 @@ int main(int argc, char *argv[])
             {
                 std::string test(std::string("      00:0") + std::to_string(i) + "     \n" +
                                              " Test display 2 ");
-                lcd.Print(test);
+                lcd.print(test);
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             };
 
-            lcd.Print("Freq: 3200 [MHz]\n"
+            lcd.print("Freq: 3200 [MHz]\n"
                       "Temp:   46 [C]");
 
             std::this_thread::sleep_for(std::chrono::seconds(5));
             loop++;
         };
 
-        lcd.Clean();
+        lcd.clean();
 
-        gpio.Close();
+        gpio.close();
     }
-    catch (rasplib::exception::Exception e)
+    catch (rasplib::Exception e)
     {
         std::cout << "Code: " << e.code() << " - " << e.what() << std::endl;
     };

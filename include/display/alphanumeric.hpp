@@ -1,3 +1,24 @@
+/*
+    Rasplib - library for handling Raspberry Pi's GPIO and connected devices
+    Copyright (C) 2018  Radosław Ulatowski
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+
+
 #ifndef __RASPLIB_DISPLAY_ALPHANUMERIC_HPP__
 #define __RASPLIB_DISPLAY_ALPHANUMERIC_HPP__
 
@@ -5,7 +26,9 @@
 #include <bitset>
 #include <memory>
 #include <map>
-#include <gpio/gpio_chip.hpp>
+#include <gpio/gpio_device.hpp>
+
+
 
 
 namespace rasplib {
@@ -21,7 +44,7 @@ private:
     unsigned short _num_lines;
 
 private:
-    rasplib::gpio::GPIOChip *_chip;
+    rasplib::gpio::GPIODevice *_gpio_device;
 
     unsigned short _command_pin;
     unsigned short _send_pin;
@@ -32,8 +55,8 @@ private:
     std::map<char, std::bitset<8>> _map;
 
 private:
-    void DisplayOn();
-    void Fill(unsigned short num);
+    void display_on();
+    void fill(unsigned short num);
 
 public:
     Alphanumeric();
@@ -41,20 +64,20 @@ public:
     virtual ~Alphanumeric();
 
 public:
-    void Init(rasplib::gpio::GPIOChip *chip,
+    void init(rasplib::gpio::GPIODevice *gpio_device,
               unsigned short command_pin,
               unsigned short send_pin,
               std::vector<unsigned short> data_pins);
 
-    void SetMode(unsigned short lines, bool cursor, bool blink);
+    void set_mode(unsigned short lines, bool cursor, bool blink);
 
 public:
-    void Send(std::bitset<8> data, bool command = false);
+    void send(std::bitset<8> data, bool command = false);
 
 public:
-    void Clean();
+    void clean();
 
-    void Print(std::string text);
+    void print(std::string text);
 };
 
 

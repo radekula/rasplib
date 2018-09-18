@@ -1,10 +1,31 @@
+/*
+    Rasplib - library for handling Raspberry Pi's GPIO and connected devices
+    Copyright (C) 2018  Radosław Ulatowski
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+
+
+
 #include <thread>
 #include <chrono>
 #include <exception/exception.hpp>
 #include <display/alphanumeric.hpp>
 
 
-#include <iostream>
 
 
 namespace rasplib {
@@ -18,7 +39,7 @@ Alphanumeric::Alphanumeric()
     _num_columns = 0;
     _num_lines = 0;
 
-    _chip = 0;
+    _gpio_device = 0;
 };
 
 
@@ -29,7 +50,7 @@ Alphanumeric::Alphanumeric(unsigned short columns, unsigned short lines)
     _num_columns = columns;
     _num_lines = lines;
 
-    _chip = 0;
+    _gpio_device = 0;
 };
 
 
@@ -41,50 +62,50 @@ Alphanumeric::~Alphanumeric()
 
 
 
-void Alphanumeric::Send(std::bitset<8> data, bool command)
+void Alphanumeric::send(std::bitset<8> data, bool command)
 {
-    if(!_chip)
-        throw rasplib::exception::Exception(201, "Cannot send data/command to display: unknown gpio device");
+    if(!_gpio_device)
+        throw rasplib::Exception(201, "Cannot send data/command to display: unknown gpio device");
 
-    _chip->Pin(_data_pins[0]).SetState(data[0]);
-    _chip->Pin(_data_pins[1]).SetState(data[1]);
-    _chip->Pin(_data_pins[2]).SetState(data[2]);
-    _chip->Pin(_data_pins[3]).SetState(data[3]);
-    _chip->Pin(_data_pins[4]).SetState(data[4]);
-    _chip->Pin(_data_pins[5]).SetState(data[5]);
-    _chip->Pin(_data_pins[6]).SetState(data[6]);
-    _chip->Pin(_data_pins[7]).SetState(data[7]);
-    _chip->Pin(_command_pin).SetState(!command);
+    _gpio_device->pin(_data_pins[0]).set_state(data[0]);
+    _gpio_device->pin(_data_pins[1]).set_state(data[1]);
+    _gpio_device->pin(_data_pins[2]).set_state(data[2]);
+    _gpio_device->pin(_data_pins[3]).set_state(data[3]);
+    _gpio_device->pin(_data_pins[4]).set_state(data[4]);
+    _gpio_device->pin(_data_pins[5]).set_state(data[5]);
+    _gpio_device->pin(_data_pins[6]).set_state(data[6]);
+    _gpio_device->pin(_data_pins[7]).set_state(data[7]);
+    _gpio_device->pin(_command_pin).set_state(!command);
 
-    _chip->Pin(_send_pin).SetState(true);
+    _gpio_device->pin(_send_pin).set_state(true);
     std::this_thread::sleep_for(std::chrono::nanoseconds(40));
-    _chip->Pin(_send_pin).SetState(false);
+    _gpio_device->pin(_send_pin).set_state(false);
 }
 
 
-void Alphanumeric::DisplayOn()
+void Alphanumeric::display_on()
 {
-    if(!_chip)
-        throw rasplib::exception::Exception(201, "Cannot turn on display: missing gpio chip reference");
+    if(!_gpio_device)
+        throw rasplib::Exception(201, "Cannot turn on display: missing gpio chip reference");
 
-    Send(std::bitset<8>(std::string("00001111")), true);
-    Send(std::bitset<8>(std::string("00111100")), true);
+    send(std::bitset<8>(std::string("00001111")), true);
+    send(std::bitset<8>(std::string("00111100")), true);
 };
 
 
 
-void Alphanumeric::Init(rasplib::gpio::GPIOChip *chip,
+void Alphanumeric::init(rasplib::gpio::GPIODevice *gpio_device,
                                unsigned short command_pin,
                                unsigned short send_pin,
                                std::vector<unsigned short> data_pins)
 {
-    _chip = chip;
+    _gpio_device = gpio_device;
     _command_pin = command_pin;
     _send_pin = send_pin;
     _data_pins = data_pins;
 
-    DisplayOn();
-    Clean();
+    display_on();
+    clean();
 
     _map[' '] = std::bitset<8>("00100000");
 
@@ -189,10 +210,10 @@ void Alphanumeric::Init(rasplib::gpio::GPIOChip *chip,
 
 
 
-void Alphanumeric::SetMode(unsigned short lines, bool cursor, bool blink)
+void Alphanumeric::set_mode(unsigned short lines, bool cursor, bool blink)
 {
-    if(!_chip)
-        throw rasplib::exception::Exception(201, "Cannot set number of lines: missing gpio chip reference");
+    if(!_gpio_device)
+        throw rasplib::Exception(201, "Cannot set number of lines: missing gpio chip reference");
 
     std::bitset<8> mode(std::string("00001000"));
 
@@ -206,18 +227,18 @@ void Alphanumeric::SetMode(unsigned short lines, bool cursor, bool blink)
         mode[0] = 1;
 
 
-    Send(mode, true);
+    send(mode, true);
 };
 
 
 
 
-void Alphanumeric::Clean()
+void Alphanumeric::clean()
 {
-    if(!_chip)
-        throw rasplib::exception::Exception(201, "Cannot clear display: missing gpio chip reference");
+    if(!_gpio_device)
+        throw rasplib::Exception(201, "Cannot clear display: missing gpio chip reference");
 
-    Send(std::bitset<8>(std::string("00000001")), true);
+    send(std::bitset<8>(std::string("00000001")), true);
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
 };
 
@@ -225,19 +246,19 @@ void Alphanumeric::Clean()
 
 
 
-void Alphanumeric::Fill(unsigned short num)
+void Alphanumeric::fill(unsigned short num)
 {
     for(int i = 0; i < num; i++)
-        Send(_map[' '], false);
+        send(_map[' '], false);
 };
 
 
 
 
-void Alphanumeric::Print(std::string text)
+void Alphanumeric::print(std::string text)
 {
-    if(!_chip)
-        throw rasplib::exception::Exception(302, "Cannot print text: missing gpio chip reference");
+    if(!_gpio_device)
+        throw rasplib::Exception(302, "Cannot print text: missing gpio chip reference");
 
     int num_chars = 0;
 
@@ -245,15 +266,15 @@ void Alphanumeric::Print(std::string text)
     {
         if(iter == '\n')
         {
-            Fill(40 - num_chars);
+            fill(40 - num_chars);
             num_chars = 0;
             continue;
         }
-        Send(_map[iter], false);
+        send(_map[iter], false);
         num_chars++;
     }
 
-    Fill(40 - num_chars);
+    fill(40 - num_chars);
 };
 
 

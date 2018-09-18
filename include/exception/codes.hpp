@@ -19,54 +19,18 @@
 
 
 
-
-#ifndef __RASPLIB_GPIO_PIN_HPP__
-#define __RASPLIB_GPIO_PIN_HPP__
-
-
-
-
-#include <memory>
-#include <linux/gpio.h>
+#ifndef __RASPLIB_EXCEPTION_CODES_HPP__
+#define __RASPLIB_EXCEPTION_CODES_HPP__
 
 
 
 
-namespace rasplib {
-namespace gpio {
+#define INVALID_DEVICE                  1
+#define DEVICE_INFO_ERROR               2
+#define INVALID_PIN_REQUEST             10
+#define REQUEST_ERROR                   51
+#define LINE_WRITE_ERROR                52
 
 
-class GPIODevice;
-
-
-class GPIOPin
-{
-private:
-    GPIODevice *_gpio_device;
-    short _line;
-    gpiohandle_request _req;
-
-private:
-    void release();
-
-public:
-    GPIOPin();
-    GPIOPin(GPIODevice *gpio_device, unsigned short line);
-    ~GPIOPin();
-
-public:
-    void set_gpio(GPIODevice *gpio_device);
-    void map_to_line(unsigned short line);
-
-public:
-    void set_state(bool state);
-    bool get_state();
-};
-
-
-
-
-}
-}
 
 #endif

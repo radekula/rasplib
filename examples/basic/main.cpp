@@ -11,26 +11,26 @@ int main(int argc, char *argv[])
 {
     try
     {
-        rasplib::gpio::GPIOChip gpio;
+        rasplib::gpio::GPIODevice gpio;
 
-        gpio.Open("/dev/gpiochip0");
+        gpio.open("/dev/gpiochip0");
 
-        gpio.Pin(0).MapToLine(10);
-        gpio.Pin(1).MapToLine(9);
-        gpio.Pin(2).MapToLine(11);
-        gpio.Pin(3).MapToLine(5);
-        gpio.Pin(4).MapToLine(6);
-        gpio.Pin(5).MapToLine(13);
-        gpio.Pin(6).MapToLine(19);
-        gpio.Pin(7).MapToLine(26);
+        gpio.pin(0).map_to_line(10);
+        gpio.pin(1).map_to_line(9);
+        gpio.pin(2).map_to_line(11);
+        gpio.pin(3).map_to_line(5);
+        gpio.pin(4).map_to_line(6);
+        gpio.pin(5).map_to_line(13);
+        gpio.pin(6).map_to_line(19);
+        gpio.pin(7).map_to_line(26);
 
         int direction = -1;
         int current = 0;
 
         for(;;)
         {
-            gpio.Pin(current).SetState(true);
-            gpio.Pin(current - direction).SetState(false);
+            gpio.pin(current).set_state(true);
+            gpio.pin(current - direction).set_state(false);
 
             if(current == 7)
                 direction = -1;
@@ -43,9 +43,9 @@ int main(int argc, char *argv[])
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
 
-        gpio.Close();
+        gpio.close();
     }
-    catch (rasplib::exception::Exception e)
+    catch (rasplib::Exception e)
     {
         std::cout << "Code: " << e.code() << " - " << e.what() << std::endl;
     };

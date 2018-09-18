@@ -1,4 +1,4 @@
 build
 *.o
-test/basic/basic
-test/lcd/lcd
+examples/basic/basic
+examples/lcd/lcd
