@@ -112,7 +112,20 @@ void Interrupts::handle()
 
             auto rv = ioctl(iter->get_device()->get_handler(), GPIO_GET_LINEEVENT_IOCTL, &req);
 
-            fds[pin_num].fd = req.fd;
+            sigset_t mask;
+            int sigfd;
+
+            sigemptyset(&mask);
+            sigaddset(&mask, SIGTERM);
+            sigaddset(&mask, SIGINT);
+
+            rv = sigprocmask(SIG_BLOCK, &mask, NULL);
+            if (rv < 0)
+                throw rasplib::Exception(SIGNAL_MASK_CREATE_ERROR, "Error creating signal mask");
+
+            sigfd = signalfd(-1, &mask, 0);
+
+            fds[pin_num].fd = sigfd;
             fds[pin_num].events = POLLIN | POLLPRI;
 
             pin_num++;
@@ -122,13 +135,11 @@ void Interrupts::handle()
 
         for(pin_num = 0; pin_num < num_pins; pin_num++) 
         {
-std::cout << fds[pin_num].revents << std::endl;
             if(fds[pin_num].revents) 
             {
-std::cout << "test" << std::endl;
                 if(fds[pin_num].revents & POLLNVAL)
                     continue;
-std::cout << "test2" << std::endl;
+
                 std::memset(&evdata, 0, sizeof(evdata));
 
                 auto rd = read(fds[pin_num].fd, &evdata, sizeof(evdata));
