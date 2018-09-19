@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <cstring>
 #include <sys/ioctl.h>
+#include <signal.h>
+#include <sys/signalfd.h>
 #include <gpio/interrupts.hpp>
 #include <gpio/pin.hpp>
 #include <gpio/device.hpp>
@@ -107,8 +109,7 @@ void Interrupts::handle()
             req.lineoffset = iter->get_line();
             req.handleflags |= GPIOHANDLE_REQUEST_OPEN_DRAIN;
 
-            req.eventflags |= GPIOEVENT_REQUEST_RISING_EDGE;
-            req.eventflags |= GPIOEVENT_REQUEST_FALLING_EDGE;
+            req.eventflags |= GPIOEVENT_REQUEST_BOTH_EDGES;
 
             auto rv = ioctl(iter->get_device()->get_handler(), GPIO_GET_LINEEVENT_IOCTL, &req);
 
