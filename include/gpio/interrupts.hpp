@@ -24,10 +24,13 @@ private:
     bool _stop;
 
 private:
-    std::vector<GPIOPin *> _pins;
+    std::vector<GPIOPin*> _pins;
+    std::vector<gpioevent_request*> _requests;
+
     static void interrupts_handler(Interrupts *self);
 
     void handle();
+    int get_request(int num_pin);
 
 private:
     Interrupts();

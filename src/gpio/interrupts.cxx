@@ -36,6 +36,14 @@ Interrupts::~Interrupts()
 
     if(_interrupts_thread)
         delete _interrupts_thread;
+
+    for(auto iter : _requests)
+    {
+        if(iter->fd)
+            close(iter->fd);
+
+        delete iter;
+    };
 };
 
 
@@ -52,16 +60,30 @@ Interrupts* Interrupts::get()
 void Interrupts::start_interrupt(GPIOPin *pin)
 {
     _pins.push_back(pin);
+    _requests.push_back(new gpioevent_request);
 };
 
 
 
 void Interrupts::stop_interrupt(GPIOPin *pin)
 {
-    auto pos = std::find(_pins.begin(), _pins.end(), pin);
-    if (pos != _pins.end())
-        _pins.erase(pos);
-    else
+    auto pos = _pins.begin();
+    auto req = _requests.begin();
+
+    while(pos != _pins.end())
+    {
+        if(*pos == pin)
+        {
+            _pins.erase(pos);
+
+            if((*req)->fd)
+                close((*req)->fd);
+
+            _requests.erase(req);
+        };
+    }
+
+    if(pos == _pins.end())
         throw rasplib::Exception(INTERRUPT_NOT_FOUND, "Interrupt for pin not found");
 };
 
@@ -87,6 +109,24 @@ void Interrupts::interrupts_handler(Interrupts *self)
 
 
 
+int Interrupts::get_request(int num_pin)
+{
+    if(!_requests[num_pin]->fd)
+    {
+        std::memset(_requests[num_pin], 0, sizeof(gpioevent_request));
+
+        _requests[num_pin]->lineoffset = _pins[num_pin]->get_line();
+        _requests[num_pin]->handleflags |= GPIOHANDLE_REQUEST_OPEN_DRAIN;
+
+        _requests[num_pin]->eventflags |= GPIOEVENT_REQUEST_BOTH_EDGES;
+
+        auto rv = ioctl(_pins[num_pin]->get_device()->get_handler(), GPIO_GET_LINEEVENT_IOCTL, _requests[num_pin]);
+    }
+
+    return _requests[num_pin]->fd;
+};
+
+
 
 //TODO: thread safe
 void Interrupts::handle()
@@ -97,23 +137,12 @@ void Interrupts::handle()
     while(!_stop)
     {
         auto num_pins = _pins.size();
-
         struct pollfd fds[num_pins];
 
         int pin_num = 0;
         for(auto iter : _pins)
         {
-            struct gpioevent_request req;
-            std::memset(&req, 0, sizeof(req));
-
-            req.lineoffset = iter->get_line();
-            req.handleflags |= GPIOHANDLE_REQUEST_OPEN_DRAIN;
-
-            req.eventflags |= GPIOEVENT_REQUEST_BOTH_EDGES;
-
-            auto rv = ioctl(iter->get_device()->get_handler(), GPIO_GET_LINEEVENT_IOCTL, &req);
-
-            sigset_t mask;
+/*            sigset_t mask;
             int sigfd;
 
             sigemptyset(&mask);
@@ -125,8 +154,8 @@ void Interrupts::handle()
                 throw rasplib::Exception(SIGNAL_MASK_CREATE_ERROR, "Error creating signal mask");
 
             sigfd = signalfd(-1, &mask, 0);
-
-            fds[pin_num].fd = sigfd;
+*/
+            fds[pin_num].fd = get_request(pin_num);
             fds[pin_num].events = POLLIN | POLLPRI;
 
             pin_num++;
@@ -146,9 +175,6 @@ void Interrupts::handle()
                 auto rd = read(fds[pin_num].fd, &evdata, sizeof(evdata));
                 _pins[pin_num]->handle_interrupt(evdata.id == GPIOEVENT_EVENT_RISING_EDGE
                                                 ? Edge::RISING : Edge::FALLING);
-
-                if(fds[pin_num].fd)
-                    close(fds[pin_num].fd);
 
                 if (!--ret)
                     break;

@@ -43,8 +43,9 @@ GPIOPin::GPIOPin()
 {
     _line = -1;
     _device = 0;
-
     _handle_fun = nullptr;
+
+    std::memset(&_req, 0, sizeof(_req));
 };
 
 
@@ -56,6 +57,8 @@ GPIOPin::GPIOPin(GPIODevice *gpio_device, unsigned short line)
     _device = 0;
 
     _handle_fun = nullptr;
+
+    std::memset(&_req, 0, sizeof(_req));
 
     set_device(gpio_device);
     map_to_line(line);
@@ -108,33 +111,46 @@ void GPIOPin::set_function(std::function<void(GPIOPin*, int)> fun)
 
 
 
+int GPIOPin::get_request(int type)
+{
+    if(!_req.flags != type)
+    {
+        if(_req.fd)
+            close(_req.fd);
+
+        std::memset(&_req, 0, sizeof(_req));
+    };
+
+    if(!_req.fd)
+    {
+        _req.lineoffsets[0] = _line;
+        _req.lines = 1;
+        _req.flags = type;
+
+        auto status = ioctl(_device->get_handler(), GPIO_GET_LINEHANDLE_IOCTL, &_req);
+        if(status < 0)
+            throw rasplib::Exception(REQUEST_ERROR, "Unable to get gpio request");
+    };
+
+    return _req.fd;
+};
+
+
+
+
 void GPIOPin::set_state(bool state)
 {
     if(!_device)
         throw rasplib::Exception(INVALID_DEVICE, "Device reference is not available");
 
-    gpiohandle_request _req;
-    std::memset(&_req, 0, sizeof(_req));
-
     struct gpiohandle_data data;
     std::memset(&data, 0, sizeof(data));
 
-    _req.lineoffsets[0] = _line;
-    _req.lines = 1;
-    _req.flags = GPIOHANDLE_REQUEST_OUTPUT;
-
-    auto status = ioctl(_device->get_handler(), GPIO_GET_LINEHANDLE_IOCTL, &_req);
-    if(status < 0)
-        throw rasplib::Exception(REQUEST_ERROR, "Unable to get gpio request");
-
     data.values[0] = state;
 
-    status = ioctl(_req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data);
+    auto status = ioctl(get_request(GPIOHANDLE_REQUEST_OUTPUT), GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data);
     if(status < 0)
         throw rasplib::Exception(LINE_WRITE_ERROR, "Unable to write new line state to gpio device");
-
-    if(_req.fd)
-        close(_req.fd);
 };
 
 
@@ -145,29 +161,16 @@ bool GPIOPin::get_state()
     if(!_device)
         throw rasplib::Exception(INVALID_DEVICE, "Device reference is not available");
 
-    gpiohandle_request _req;
-    std::memset(&_req, 0, sizeof(_req));
-
     struct gpiohandle_data data;
     std::memset(&data, 0, sizeof(data));
 
-    _req.lineoffsets[0] = _line;
-    _req.lines = 1;
-    _req.flags = GPIOHANDLE_REQUEST_INPUT;
-
-    auto status = ioctl(_device->get_handler(), GPIO_GET_LINEHANDLE_IOCTL, &_req);
-    if(status < 0)
-        throw rasplib::Exception(REQUEST_ERROR, "Unable to get gpio request");
-
-    status = ioctl(_req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
+    auto status = ioctl(get_request(GPIOHANDLE_REQUEST_INPUT), GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
     if(status < 0)
         throw rasplib::Exception(LINE_WRITE_ERROR, "Unable to write new line state to gpio device");
 
-    if(_req.fd)
-        close(_req.fd);
-
     return data.values[0];
 };
+
 
 
 

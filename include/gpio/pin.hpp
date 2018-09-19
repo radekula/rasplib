@@ -55,9 +55,11 @@ class GPIOPin
 private:
     GPIODevice *_device;
     short _line;
+    gpiohandle_request _req;
 
 private:
     std::function<void(GPIOPin*, int)> _handle_fun;
+    int get_request(int type);
 
 public:
     GPIOPin();
