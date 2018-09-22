@@ -11,7 +11,6 @@
 #include <exception/exception.hpp>
 
 
-#include <iostream>
 
 
 namespace rasplib {
@@ -173,6 +172,8 @@ void Interrupts::handle()
                 std::memset(&evdata, 0, sizeof(evdata));
 
                 auto rd = read(fds[pin_num].fd, &evdata, sizeof(evdata));
+
+                std::lock_guard<std::mutex> guard(_thread_lock);
                 _pins[pin_num]->handle_interrupt(evdata.id == GPIOEVENT_EVENT_RISING_EDGE
                                                 ? Edge::RISING : Edge::FALLING);
 

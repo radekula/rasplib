@@ -7,6 +7,7 @@
 
 #include <thread>
 #include <vector>
+#include <mutex>
 #include <gpio/pin.hpp>
 
 
@@ -20,6 +21,8 @@ class Interrupts
 {
 private:
     std::thread *_interrupts_thread;
+
+    std::mutex _thread_lock;
 
     bool _stop;
 
