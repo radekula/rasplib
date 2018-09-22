@@ -58,6 +58,8 @@ Interrupts* Interrupts::get()
 
 void Interrupts::start_interrupt(GPIOPin *pin)
 {
+    std::lock_guard<std::mutex> guard(_thread_lock);
+
     _pins.push_back(pin);
     _requests.push_back(new gpioevent_request);
 };
@@ -66,6 +68,8 @@ void Interrupts::start_interrupt(GPIOPin *pin)
 
 void Interrupts::stop_interrupt(GPIOPin *pin)
 {
+    std::lock_guard<std::mutex> guard(_thread_lock);
+
     auto pos = _pins.begin();
     auto req = _requests.begin();
 
@@ -110,6 +114,8 @@ void Interrupts::interrupts_handler(Interrupts *self)
 
 int Interrupts::get_request(int num_pin)
 {
+    std::lock_guard<std::mutex> guard(_thread_lock);
+
     if(!_requests[num_pin]->fd)
     {
         std::memset(_requests[num_pin], 0, sizeof(gpioevent_request));
@@ -141,19 +147,6 @@ void Interrupts::handle()
         int pin_num = 0;
         for(auto iter : _pins)
         {
-/*            sigset_t mask;
-            int sigfd;
-
-            sigemptyset(&mask);
-            sigaddset(&mask, SIGTERM);
-            sigaddset(&mask, SIGINT);
-
-            rv = sigprocmask(SIG_BLOCK, &mask, NULL);
-            if (rv < 0)
-                throw rasplib::Exception(SIGNAL_MASK_CREATE_ERROR, "Error creating signal mask");
-
-            sigfd = signalfd(-1, &mask, 0);
-*/
             fds[pin_num].fd = get_request(pin_num);
             fds[pin_num].events = POLLIN | POLLPRI;
 
