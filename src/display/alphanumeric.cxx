@@ -40,6 +40,7 @@ Alphanumeric::Alphanumeric()
     _num_lines = 0;
 
     _gpio_device = 0;
+    _i2c_device = 0;
 };
 
 
@@ -51,6 +52,7 @@ Alphanumeric::Alphanumeric(unsigned short columns, unsigned short lines)
     _num_lines = lines;
 
     _gpio_device = 0;
+    _i2c_device = 0;
 };
 
 
@@ -58,35 +60,50 @@ Alphanumeric::Alphanumeric(unsigned short columns, unsigned short lines)
 
 Alphanumeric::~Alphanumeric()
 {
+    if(_i2c_device)
+        _i2c_device->close();
 };
 
 
 
 void Alphanumeric::send(std::bitset<8> data, bool command)
 {
-    if(!_gpio_device)
-        throw rasplib::Exception(201, "Cannot send data/command to display: unknown gpio device");
+    if(!_gpio_device && !_i2c_device)
+        throw rasplib::Exception(201, "Cannot send data/command to display: missing device");
 
-    _gpio_device->pin(_data_pins[0]).set_state(data[0]);
-    _gpio_device->pin(_data_pins[1]).set_state(data[1]);
-    _gpio_device->pin(_data_pins[2]).set_state(data[2]);
-    _gpio_device->pin(_data_pins[3]).set_state(data[3]);
-    _gpio_device->pin(_data_pins[4]).set_state(data[4]);
-    _gpio_device->pin(_data_pins[5]).set_state(data[5]);
-    _gpio_device->pin(_data_pins[6]).set_state(data[6]);
-    _gpio_device->pin(_data_pins[7]).set_state(data[7]);
-    _gpio_device->pin(_command_pin).set_state(!command);
+    if(_gpio_device)
+    {
+        _gpio_device->pin(_data_pins[0]).set_state(data[0]);
+        _gpio_device->pin(_data_pins[1]).set_state(data[1]);
+        _gpio_device->pin(_data_pins[2]).set_state(data[2]);
+        _gpio_device->pin(_data_pins[3]).set_state(data[3]);
+        _gpio_device->pin(_data_pins[4]).set_state(data[4]);
+        _gpio_device->pin(_data_pins[5]).set_state(data[5]);
+        _gpio_device->pin(_data_pins[6]).set_state(data[6]);
+        _gpio_device->pin(_data_pins[7]).set_state(data[7]);
+        _gpio_device->pin(_command_pin).set_state(!command);
 
-    _gpio_device->pin(_send_pin).set_state(true);
-    std::this_thread::sleep_for(std::chrono::nanoseconds(40));
-    _gpio_device->pin(_send_pin).set_state(false);
+        _gpio_device->pin(_send_pin).set_state(true);
+        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+        _gpio_device->pin(_send_pin).set_state(false);
+    };
+
+    if(_i2c_device)
+    {
+        if(command)
+            _i2c_device->write(std::bitset<8>(0x40));
+        else
+            _i2c_device->write(std::bitset<8>(0x00));
+
+        _i2c_device->write(data);
+    };
 }
 
 
 void Alphanumeric::display_on()
 {
-    if(!_gpio_device)
-        throw rasplib::Exception(201, "Cannot turn on display: missing gpio chip reference");
+    if(!_gpio_device && !_i2c_device)
+        throw rasplib::Exception(201, "Cannot turn on display: missing device");
 
     send(std::bitset<8>(std::string("00001111")), true);
     send(std::bitset<8>(std::string("00111100")), true);
@@ -94,19 +111,8 @@ void Alphanumeric::display_on()
 
 
 
-void Alphanumeric::init(rasplib::gpio::GPIODevice *gpio_device,
-                               unsigned short command_pin,
-                               unsigned short send_pin,
-                               std::vector<unsigned short> data_pins)
+void Alphanumeric::init_map()
 {
-    _gpio_device = gpio_device;
-    _command_pin = command_pin;
-    _send_pin = send_pin;
-    _data_pins = data_pins;
-
-    display_on();
-    clean();
-
     _map[' '] = std::bitset<8>("00100000");
 
     _map['A'] = std::bitset<8>("01000001");
@@ -209,11 +215,43 @@ void Alphanumeric::init(rasplib::gpio::GPIODevice *gpio_device,
 
 
 
+void Alphanumeric::init(rasplib::gpio::GPIODevice *gpio_device,
+                               unsigned short command_pin,
+                               unsigned short send_pin,
+                               std::vector<unsigned short> data_pins)
+{
+    _gpio_device = gpio_device;
+    _command_pin = command_pin;
+    _send_pin = send_pin;
+    _data_pins = data_pins;
+
+    display_on();
+    clean();
+
+    init_map();
+};
+
+
+
+
+void Alphanumeric::init(unsigned short bus, std::bitset<8> address)
+{
+    _i2c_device = std::make_unique<rasplib::i2c::I2CDevice>();
+    _i2c_device->open(bus, address);
+
+    display_on();
+    clean();
+
+    init_map();
+};
+
+
+
 
 void Alphanumeric::set_mode(unsigned short lines, bool cursor, bool blink)
 {
-    if(!_gpio_device)
-        throw rasplib::Exception(201, "Cannot set number of lines: missing gpio chip reference");
+    if(!_gpio_device && !_i2c_device)
+        throw rasplib::Exception(201, "Cannot set number of lines: missing device");
 
     std::bitset<8> mode(std::string("00001000"));
 
@@ -235,8 +273,8 @@ void Alphanumeric::set_mode(unsigned short lines, bool cursor, bool blink)
 
 void Alphanumeric::clean()
 {
-    if(!_gpio_device)
-        throw rasplib::Exception(201, "Cannot clear display: missing gpio chip reference");
+    if(!_gpio_device && !_i2c_device)
+        throw rasplib::Exception(201, "Cannot clear display: missing device");
 
     send(std::bitset<8>(std::string("00000001")), true);
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -257,8 +295,8 @@ void Alphanumeric::fill(unsigned short num)
 
 void Alphanumeric::print(std::string text)
 {
-    if(!_gpio_device)
-        throw rasplib::Exception(302, "Cannot print text: missing gpio chip reference");
+    if(!_gpio_device && !_i2c_device)
+        throw rasplib::Exception(302, "Cannot print text: missing device");
 
     int num_chars = 0;
 

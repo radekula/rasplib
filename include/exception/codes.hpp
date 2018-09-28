@@ -34,7 +34,8 @@
 #define SIGNAL_HANDLER_CREATE_ERROR     102
 #define INTERRUPTS_HANDLER_NOT_EXISTS   201
 #define INTERRUPT_NOT_FOUND             202
-
+#define I2C_BUS_ERROR                   301
+#define I2C_DEVICE_ERROR                302
 
 
 #endif

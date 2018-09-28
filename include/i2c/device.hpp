@@ -20,15 +20,45 @@
 
 
 
-#ifndef __RASPLIB_HPP__
-#define __RASPLIB_HPP__
+#ifndef __RASPLIB_I2C_DEVICE_HPP__
+#define __RASPLIB_I2C_DEVICE_HPP__
 
-#include "exception/exception.hpp"
-#include "gpio/pin.hpp"
-#include "gpio/device.hpp"
-#include "gpio/interrupts.hpp"
-#include "i2c/device.hpp"
-#include "display/alphanumeric.hpp"
 
+
+
+#include <bitset>
+
+
+
+
+namespace rasplib {
+namespace i2c {
+
+
+
+
+class I2CDevice
+{
+private:
+    int _handler;
+
+public:
+    I2CDevice();
+    ~I2CDevice();
+
+public:
+    void open(unsigned short bus, std::bitset<8> address);
+    void close();
+
+public:
+    void write(std::bitset<8> data);
+    void read();
+};
+
+
+
+
+}
+}
 
 #endif

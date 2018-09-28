@@ -27,7 +27,7 @@
 #include <memory>
 #include <map>
 #include <gpio/device.hpp>
-
+#include <i2c/device.hpp>
 
 
 
@@ -52,7 +52,11 @@ private:
     std::vector<unsigned short> _data_pins;
 
 private:
+    std::unique_ptr<rasplib::i2c::I2CDevice> _i2c_device;
+
+private:
     std::map<char, std::bitset<8>> _map;
+    void init_map();
 
 private:
     void display_on();
@@ -68,6 +72,8 @@ public:
               unsigned short command_pin,
               unsigned short send_pin,
               std::vector<unsigned short> data_pins);
+
+    void init(unsigned short bus, std::bitset<8> address);
 
     void set_mode(unsigned short lines, bool cursor, bool blink);
 
