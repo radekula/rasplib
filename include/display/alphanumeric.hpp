@@ -42,6 +42,10 @@ class Alphanumeric
 private:
     unsigned short _num_columns;
     unsigned short _num_lines;
+    bool _backlight;
+    bool _cursor_visible;
+    bool _cursor_blink;
+    unsigned short _visible_lines;
 
 private:
     rasplib::gpio::GPIODevice *_gpio_device;
@@ -55,6 +59,7 @@ private:
     std::unique_ptr<rasplib::i2c::I2CDevice> _i2c_device;
 
 private:
+    std::bitset<8> _mode;
     std::map<char, std::bitset<8>> _map;
     void init_map();
 

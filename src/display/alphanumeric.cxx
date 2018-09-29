@@ -38,9 +38,15 @@ Alphanumeric::Alphanumeric()
 {
     _num_columns = 0;
     _num_lines = 0;
+    _backlight = true;
+    _cursor_visible = false;
+    _cursor_blink = false;
+    _visible_lines = 2;
 
     _gpio_device = 0;
     _i2c_device = 0;
+
+    _mode = std::bitset<8>(std::string("00001000"));
 };
 
 
@@ -50,9 +56,15 @@ Alphanumeric::Alphanumeric(unsigned short columns, unsigned short lines)
 {
     _num_columns = columns;
     _num_lines = lines;
+    _backlight = true;
+    _cursor_visible = false;
+    _cursor_blink = false;
+    _visible_lines = 2;
 
     _gpio_device = 0;
     _i2c_device = 0;
+
+    _mode = std::bitset<8>(std::string("00001000"));
 };
 
 
@@ -90,12 +102,36 @@ void Alphanumeric::send(std::bitset<8> data, bool command)
 
     if(_i2c_device)
     {
-        if(command)
-            _i2c_device->write(std::bitset<8>(0x40));
-        else
-            _i2c_device->write(std::bitset<8>(0x00));
+        std::bitset<8> s(0x0);
 
-        _i2c_device->write(data);
+        if(!command)
+            s[0] = 1;
+
+        s[3] = _backlight;
+
+        s[4] = data[4];
+        s[5] = data[5];
+        s[6] = data[6];
+        s[7] = data[7];
+
+        _i2c_device->write(s);
+        s[2] = 1;
+        _i2c_device->write(s);
+        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+        s[2] = 0;
+        _i2c_device->write(s);
+
+        s[4] = data[0];
+        s[5] = data[1];
+        s[6] = data[2];
+        s[7] = data[3];
+
+        _i2c_device->write(s);
+        s[2] = 1;
+        _i2c_device->write(s);
+        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+        s[2] = 0;
+        _i2c_device->write(s);
     };
 }
 
@@ -105,8 +141,22 @@ void Alphanumeric::display_on()
     if(!_gpio_device && !_i2c_device)
         throw rasplib::Exception(201, "Cannot turn on display: missing device");
 
+    if(_i2c_device)
+    {
+        // reset
+        _i2c_device->write(0b00001000);
+        _i2c_device->write(0b00001100);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        _i2c_device->write(0b00001000);
+
+        // set 4bit mode
+        _i2c_device->write(0b00101000);
+        _i2c_device->write(0b00101100);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        _i2c_device->write(0b00101000);
+    }
+
     send(std::bitset<8>(std::string("00001111")), true);
-    send(std::bitset<8>(std::string("00111100")), true);
 };
 
 
@@ -253,19 +303,28 @@ void Alphanumeric::set_mode(unsigned short lines, bool cursor, bool blink)
     if(!_gpio_device && !_i2c_device)
         throw rasplib::Exception(201, "Cannot set number of lines: missing device");
 
-    std::bitset<8> mode(std::string("00001000"));
+    _visible_lines = lines;
+    _cursor_visible = cursor;
+    _cursor_blink = blink;
 
-    if(lines > 1)
-        mode[2] = 1;
+    _mode[3] = lines > 1 ? true : false;
+    _mode[2] = 0;
+    _mode[5] = 1;
 
-    if(cursor)
-        mode[1] = 1;
+//TODO: propper 4bit support for all cases
+    if(_i2c_device)
+        _mode[4] = 0;
+    else
+        _mode[4] = 1;
 
-    if(blink)
-        mode[0] = 1;
+    send(_mode, true);
 
-
-    send(mode, true);
+    std::bitset<8> c(0x0);
+    c[0] = blink;
+    c[1] = cursor;
+    c[2] = 1;
+    c[3] = 1;
+    send(c, true);
 };
 
 
