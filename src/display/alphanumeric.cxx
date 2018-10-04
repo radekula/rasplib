@@ -22,6 +22,7 @@
 
 #include <thread>
 #include <chrono>
+#include <sstream>
 #include <exception/exception.hpp>
 #include <display/alphanumeric.hpp>
 
@@ -432,38 +433,59 @@ void Alphanumeric::print(std::string text)
     if(!_gpio_device && !_i2c_device)
         throw rasplib::Exception(302, "Cannot print text: missing device");
 
-    // remember num chars written to line
-    int num_chars = 0;
+    // remember current line number
     int line = 0;
 
+    // set cursor to begin
     std::bitset<8> start_addr(0x80 | lines_addr[line]);
     send(start_addr, true);
 
-    // iterate through text and sent each character to screen
-    for(auto iter : text)
+    std::istringstream new_text(text);
+    std::istringstream old_text(_current_text);
+
+    std::string new_line;
+    std::string old_line;
+
+    // compare each new line with old line and update if change is detected
+    while(std::getline(new_text, new_line))
     {
-        // if character is new line move cursor to next line by filling with empty characters
-        if(iter == '\n')
+        std::getline(old_text, old_line);
+        auto old_size = old_line.size();
+
+        int curr_char = -1;
+        for(auto iter : new_line)
         {
-            fill(_virtual_line_length - num_chars);
-            num_chars = 0;
+            curr_char++;
+            if(curr_char < old_size)
+            {
+                if(new_line[curr_char] == old_line[curr_char])
+                    continue;
+            }
 
-            line++;
-            if(line == _num_lines)
-                line = 0;
+            // set cursor to place where change is needed
+            std::bitset<8> start_addr((0x80 | lines_addr[line]) + curr_char);
+            send(start_addr, true);
+            send(_map[iter], false);
+        };
 
-            std::bitset<8> line_addr(0x80 | lines_addr[line]);
-            send(line_addr, true);
-            continue;
-        }
+        // set cursor to end of line
+        std::bitset<8> start_addr((0x80 | lines_addr[line]) + ++curr_char);
+        send(start_addr, true);
 
-        // send character
-        send(_map[iter], false);
-        num_chars++;
-    }
+        // fill line with empty characters
+        fill(_virtual_line_length - curr_char);
 
-    // fill last line with empty character
-    fill(_virtual_line_length - num_chars);
+        // increment line number or reset to beginning
+        line++;
+        if(line == _num_lines)
+            line = 0;
+
+        // set cursor to new line
+        std::bitset<8> line_addr(0x80 | lines_addr[line]);
+        send(line_addr, true);
+    };
+
+    _current_text = text;
 };
 
 
