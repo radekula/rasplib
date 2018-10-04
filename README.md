@@ -1,6 +1,6 @@
 # rasplib
 
-*** Description ***
+### Description ###
 This is a small, custom library to handle Raspberry's I/O ports (and maybe other devices too) written in C++.
 This library uses new kernel GPIO interface (/dev/gpiochipN character device) so modern kernel is needed.
 
@@ -10,16 +10,24 @@ Tested on:
 
 As for now this is more a 'proof of concept' project or 'work in progress' project - not ready for production systems!.
 
-*** Modules/APIs ***
+### Modules/APIs ###
  1. GPIO
  2. I2C
  3. Display
    * Alphanumeric LCDs (HD44780 compatible, PCF8574 I2C Bus Expander support)
 
-*** Usage ***
+### Build ###
+```
+cd rasplib
+mkdir -p build && cd build
+cmake ..
+make
+```
+
+### Usage ###
 See examples and raspscreen project.
 
-*** TODO ***
+### TODO ###
  * [ALL] modern C++ where possible
  * [ALL] cleaning + comments
  * [I2C] read data from I2C device
