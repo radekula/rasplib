@@ -47,6 +47,7 @@ GPIODevice::GPIODevice()
 
 GPIODevice::~GPIODevice()
 {
+    // close device if opened
     if(is_open())
         close();
 };
@@ -56,7 +57,7 @@ GPIODevice::~GPIODevice()
 
 std::string GPIODevice::name()
 {
-    return std::string(_name);
+    return _name;
 };
 
 
@@ -64,7 +65,7 @@ std::string GPIODevice::name()
 
 std::string GPIODevice::label()
 {
-    return std::string(_label);
+    return _label;
 };
 
 
@@ -79,11 +80,13 @@ unsigned short GPIODevice::lines()
 
 void GPIODevice::open(std::string device)
 {
+    // close device if is opened
     if(is_open())
         close();
 
     try
     {
+        // try to open system device
         _handler = ::open(device.c_str(), O_RDWR | O_CLOEXEC);
         if(_handler < 0)
             throw rasplib::Exception(INVALID_DEVICE, std::string("Cannot open device: ") + device);
@@ -91,19 +94,23 @@ void GPIODevice::open(std::string device)
         struct gpiochip_info info;
         std::memset(&info, 0, sizeof(info));
 
+        // get device info
         auto status = ioctl(_handler, GPIO_GET_CHIPINFO_IOCTL, &info);
         if(status < 0)
             throw rasplib::Exception(DEVICE_INFO_ERROR, "Unable to get gpio device info");
 
+        // copy device info
         _name = info.name;
         _lines = info.lines;
         _label = info.label;
 
+        // create pins objects
         for(int line = 0; line < _lines; line++)
             _pins.push_back(std::make_shared<rasplib::gpio::GPIOPin>(this, line));
     }
     catch(rasplib::Exception e)
     {
+        // clean when something went wrong
         if(_handler)
         {
             ::close(_handler);
@@ -118,6 +125,7 @@ void GPIODevice::open(std::string device)
 
 void GPIODevice::close()
 {
+    // if handler is not 0 close device
     if(_handler)
     {
         ::close(_handler);
@@ -126,8 +134,11 @@ void GPIODevice::close()
 };
 
 
+
+
 bool GPIODevice::is_open()
 {
+    // if handler is not 0 then device is opened
     if(_handler)
         return true;
 
@@ -136,7 +147,7 @@ bool GPIODevice::is_open()
 
 
 
-int GPIODevice::get_handler()
+int GPIODevice::handler()
 {
     return _handler;
 };
@@ -145,9 +156,11 @@ int GPIODevice::get_handler()
 
 GPIOPin& GPIODevice::pin(unsigned short num)
 {
-    if(num >= _lines)
+    // check if requested pin number is valid
+    if(num >= _pins.size())
         throw rasplib::Exception(INVALID_PIN_REQUEST, "Requested line number is higher than available lines");
 
+    // return pin object
     return *_pins[num];
 };
 

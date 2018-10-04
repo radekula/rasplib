@@ -16,12 +16,12 @@ void handle_pin_events(rasplib::gpio::GPIOPin *pin, int edge)
     if(edge == rasplib::gpio::Edge::RISING)
     {
         std::cout << "Detected RISING edge" << std::endl;
-        pin->get_device()->pin(1).set_state(true);
+        pin->device()->pin(1).set_state(true);
     }
     else if(edge == rasplib::gpio::Edge::FALLING)
     {
         std::cout << "Detected FALLING edge" << std::endl;
-        pin->get_device()->pin(1).set_state(false);
+        pin->device()->pin(1).set_state(false);
     }
     else
     {

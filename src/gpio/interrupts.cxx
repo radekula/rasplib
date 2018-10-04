@@ -18,11 +18,14 @@ namespace gpio {
 
 
 
+
+
 Interrupts::Interrupts()
 {
     _stop = false;
 
-    _interrupts_thread = new std::thread(interrupts_handler, this);
+    // start interrupt thread on first use of Interrupts object
+    _interrupts_thread = std::make_unique<std::thread>(interrupts_handler, this);
     _interrupts_thread->detach();
 };
 
@@ -30,19 +33,7 @@ Interrupts::Interrupts()
 
 Interrupts::~Interrupts()
 {
-    _stop = true;
-    _interrupts_thread->join();
-
-    if(_interrupts_thread)
-        delete _interrupts_thread;
-
-    for(auto iter : _requests)
-    {
-        if(iter->fd)
-            close(iter->fd);
-
-        delete iter;
-    };
+    exit();
 };
 
 
@@ -50,7 +41,6 @@ Interrupts::~Interrupts()
 Interrupts* Interrupts::get()
 {
     static Interrupts _self;
-
     return &_self;
 };
 
@@ -58,6 +48,7 @@ Interrupts* Interrupts::get()
 
 void Interrupts::start_interrupt(GPIOPin *pin)
 {
+    // lock access to pins and requests arrays
     std::lock_guard<std::mutex> guard(_thread_lock);
 
     _pins.push_back(pin);
@@ -68,13 +59,16 @@ void Interrupts::start_interrupt(GPIOPin *pin)
 
 void Interrupts::stop_interrupt(GPIOPin *pin)
 {
+    // lock access to pins and requests arrays
     std::lock_guard<std::mutex> guard(_thread_lock);
 
     auto pos = _pins.begin();
     auto req = _requests.begin();
 
+    // search for pin
     while(pos != _pins.end())
     {
+        // if pin is found remove it with request
         if(*pos == pin)
         {
             _pins.erase(pos);
@@ -83,7 +77,12 @@ void Interrupts::stop_interrupt(GPIOPin *pin)
                 close((*req)->fd);
 
             _requests.erase(req);
+
+            break;
         };
+
+        pos++;
+        req++;
     }
 
     if(pos == _pins.end())
@@ -94,13 +93,22 @@ void Interrupts::stop_interrupt(GPIOPin *pin)
 
 void Interrupts::exit()
 {
+    // if thread is running stop it
     if(!_interrupts_thread)
         return;
 
     _stop = true;
     _interrupts_thread->join();
-};
 
+    // close all requests
+    for(auto req : _requests)
+        if(req->fd)
+            close(req->fd);
+
+    // clean all arrays
+    _requests.clear();
+    _pins.clear();
+};
 
 
 
@@ -112,64 +120,86 @@ void Interrupts::interrupts_handler(Interrupts *self)
 
 
 
-int Interrupts::get_request(int num_pin)
+int Interrupts::request(int num_pin)
 {
+    // lock access to pins and requests arrays
     std::lock_guard<std::mutex> guard(_thread_lock);
 
+    // if request don't exist create new one
     if(!_requests[num_pin]->fd)
     {
         std::memset(_requests[num_pin], 0, sizeof(gpioevent_request));
 
-        _requests[num_pin]->lineoffset = _pins[num_pin]->get_line();
+        // only lines set for reading (OPEN DRAIN) can have interrupts
+        _requests[num_pin]->lineoffset = _pins[num_pin]->line();
         _requests[num_pin]->handleflags |= GPIOHANDLE_REQUEST_OPEN_DRAIN;
 
+        // we will be listening for changes in both edges
         _requests[num_pin]->eventflags |= GPIOEVENT_REQUEST_BOTH_EDGES;
 
-        auto rv = ioctl(_pins[num_pin]->get_device()->get_handler(), GPIO_GET_LINEEVENT_IOCTL, _requests[num_pin]);
+        // call system function to set line to generate events
+        auto rv = ioctl(_pins[num_pin]->device()->handler(), GPIO_GET_LINEEVENT_IOCTL, _requests[num_pin]);
     }
 
+    // return request handler
     return _requests[num_pin]->fd;
 };
 
 
 
-//TODO: thread safe
+//TODO: more atomic thread safe guard
+//TODO: second mutex only for manipulating _pins array as pins cannot be removed or rearranged during loop iteration (other operations like searching are permited)
 void Interrupts::handle()
 {
     static gpioevent_data evdata;
-    static timespec ts = {0, 1000};
+    static timespec ts = {0, 1000};                                         //< timeout for waiting for events in each iteration
 
+    // wait for events in loop until stop from parent thread is not set
     while(!_stop)
     {
-        auto num_pins = _pins.size();
-        struct pollfd fds[num_pins];
+        int num_pins = 0;
+        pollfd *fds = 0;
 
+        {
+            std::lock_guard<std::mutex> guard(_thread_lock);
+
+            // prepare lines handlers poll
+            num_pins = _pins.size();
+            fds = new pollfd[num_pins];
+        }
+
+        // get requests handlers for each line
         int pin_num = 0;
         for(auto iter : _pins)
         {
-            fds[pin_num].fd = get_request(pin_num);
+            fds[pin_num].fd = request(pin_num);
             fds[pin_num].events = POLLIN | POLLPRI;
 
             pin_num++;
         };
 
+        // wait for events for all lines
         auto ret = ppoll(fds, num_pins, &ts, NULL);
 
-        for(pin_num = 0; pin_num < num_pins; pin_num++) 
+        // handle line events
+        for(pin_num = 0; pin_num < num_pins; pin_num++)
         {
-            if(fds[pin_num].revents) 
+            // detect if event is set for current line
+            if(fds[pin_num].revents)
             {
                 if(fds[pin_num].revents & POLLNVAL)
                     continue;
 
+                // read data for event
                 std::memset(&evdata, 0, sizeof(evdata));
-
                 auto rd = read(fds[pin_num].fd, &evdata, sizeof(evdata));
 
+                // if pin still exists call interrupt handler
+                // as for now we cannot detect situation when pin is removed and
                 std::lock_guard<std::mutex> guard(_thread_lock);
-                _pins[pin_num]->handle_interrupt(evdata.id == GPIOEVENT_EVENT_RISING_EDGE
-                                                ? Edge::RISING : Edge::FALLING);
-
+                if(pin_num < _pins.size())
+                    _pins[pin_num]->handle_interrupt(evdata.id == GPIOEVENT_EVENT_RISING_EDGE
+                                                     ? Edge::RISING : Edge::FALLING);
                 if (!--ret)
                     break;
             }

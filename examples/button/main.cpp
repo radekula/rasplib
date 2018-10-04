@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 
         for(;;)
         {
-            auto value = gpio.pin(0).get_state();
+            auto value = gpio.pin(0).state();
             gpio.pin(1).set_state(value);
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }

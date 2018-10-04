@@ -36,36 +36,80 @@ namespace gpio {
 
 
 
-class GPIODevice 
+class GPIODevice
 {
 private:
-    int _handler;
+    int _handler;                                   //< System handler id for device (file handler)
 
 private:
-    std::string _name;
-    std::string _label;
-    unsigned short _lines;
+    std::string _name;                              //< Name of a device
+    std::string _label;                             //< Device label
+    unsigned short _lines;                          //< Number of device's GPIO lines
 
 private:
-    std::vector<std::shared_ptr<GPIOPin>> _pins;
+    std::vector<std::shared_ptr<GPIOPin>> _pins;    //< Array of pins objects
 
 public:
+    /**
+     * Class constructor
+     */
     GPIODevice();
+
+    /**
+     * Class destructor
+     */
     ~GPIODevice();
 
 public:
+    /**
+     * Get name of a device
+     */
     std::string name();
+
+    /**
+     * Get device label
+     */
     std::string label();
+
+    /**
+     * Get number of GPIO lines
+     */
     unsigned short lines();
 
 public:
+    /**
+     * Open a GPIO device
+     *
+     * @param device Device path (/dev/gpiochipN)
+     */
     void open(std::string device);
+
+    /**
+     * Close a device
+     */
     void close();
+
+    /**
+     * Check if device is opened
+     *
+     * @return True when device is opened otherwise false
+     */
     bool is_open();
 
-    int get_handler();
+    /**
+     * Get device handler id
+     *
+     * @return Device handler
+     */
+    int handler();
 
 public:
+    /**
+     * Get access to a device pin
+     *
+     * @param num Pin number
+     * @return Pin object
+     */
     GPIOPin& pin(unsigned short num);
 };
 
