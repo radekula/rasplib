@@ -38,33 +38,39 @@ Alphanumeric::Alphanumeric()
 {
     _num_columns = 0;
     _num_lines = 0;
+    _virtual_line_length = 40;
+
+    _full_screen = false;
     _backlight = true;
     _cursor_visible = false;
     _cursor_blink = false;
-    _visible_lines = 2;
 
     _gpio_device = 0;
     _i2c_device = 0;
 
-    _mode = std::bitset<8>(std::string("00001000"));
+    _command_pin = 0;
+    _send_pin = 0;
 };
 
 
 
 
-Alphanumeric::Alphanumeric(unsigned short columns, unsigned short lines)
+Alphanumeric::Alphanumeric(unsigned short columns, unsigned short lines, unsigned short virtual_line_length)
 {
     _num_columns = columns;
     _num_lines = lines;
+    _virtual_line_length = virtual_line_length;
+
+    _full_screen = false;
     _backlight = true;
     _cursor_visible = false;
     _cursor_blink = false;
-    _visible_lines = 2;
 
     _gpio_device = 0;
     _i2c_device = 0;
 
-    _mode = std::bitset<8>(std::string("00001000"));
+    _command_pin = 0;
+    _send_pin = 0;
 };
 
 
@@ -74,89 +80,6 @@ Alphanumeric::~Alphanumeric()
 {
     if(_i2c_device)
         _i2c_device->close();
-};
-
-
-
-void Alphanumeric::send(std::bitset<8> data, bool command)
-{
-    if(!_gpio_device && !_i2c_device)
-        throw rasplib::Exception(201, "Cannot send data/command to display: missing device");
-
-    if(_gpio_device)
-    {
-        _gpio_device->pin(_data_pins[0]).set_state(data[0]);
-        _gpio_device->pin(_data_pins[1]).set_state(data[1]);
-        _gpio_device->pin(_data_pins[2]).set_state(data[2]);
-        _gpio_device->pin(_data_pins[3]).set_state(data[3]);
-        _gpio_device->pin(_data_pins[4]).set_state(data[4]);
-        _gpio_device->pin(_data_pins[5]).set_state(data[5]);
-        _gpio_device->pin(_data_pins[6]).set_state(data[6]);
-        _gpio_device->pin(_data_pins[7]).set_state(data[7]);
-        _gpio_device->pin(_command_pin).set_state(!command);
-
-        _gpio_device->pin(_send_pin).set_state(true);
-        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
-        _gpio_device->pin(_send_pin).set_state(false);
-    };
-
-    if(_i2c_device)
-    {
-        std::bitset<8> s(0x0);
-
-        if(!command)
-            s[0] = 1;
-
-        s[3] = _backlight;
-
-        s[4] = data[4];
-        s[5] = data[5];
-        s[6] = data[6];
-        s[7] = data[7];
-
-        _i2c_device->write(s);
-        s[2] = 1;
-        _i2c_device->write(s);
-        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
-        s[2] = 0;
-        _i2c_device->write(s);
-
-        s[4] = data[0];
-        s[5] = data[1];
-        s[6] = data[2];
-        s[7] = data[3];
-
-        _i2c_device->write(s);
-        s[2] = 1;
-        _i2c_device->write(s);
-        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
-        s[2] = 0;
-        _i2c_device->write(s);
-    };
-}
-
-
-void Alphanumeric::display_on()
-{
-    if(!_gpio_device && !_i2c_device)
-        throw rasplib::Exception(201, "Cannot turn on display: missing device");
-
-    if(_i2c_device)
-    {
-        // reset
-        _i2c_device->write(0b00001000);
-        _i2c_device->write(0b00001100);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        _i2c_device->write(0b00001000);
-
-        // set 4bit mode
-        _i2c_device->write(0b00101000);
-        _i2c_device->write(0b00101100);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        _i2c_device->write(0b00101000);
-    }
-
-    send(std::bitset<8>(std::string("00001111")), true);
 };
 
 
@@ -265,19 +188,148 @@ void Alphanumeric::init_map()
 
 
 
+
+void Alphanumeric::send(std::bitset<8> data, bool command)
+{
+    if(!_gpio_device && !_i2c_device)
+        throw rasplib::Exception(201, "Cannot send data/command to display: missing device");
+
+    // With small code modification it may be possibile 
+    // to send data to GPIO and I2C devices at the same time
+    // but most use cases don't need this feature
+    if(_gpio_device)
+    {
+        // set data pins values
+        _gpio_device->pin(_data_pins[0]).set_state(data[0]);
+        _gpio_device->pin(_data_pins[1]).set_state(data[1]);
+        _gpio_device->pin(_data_pins[2]).set_state(data[2]);
+        _gpio_device->pin(_data_pins[3]).set_state(data[3]);
+        _gpio_device->pin(_data_pins[4]).set_state(data[4]);
+        _gpio_device->pin(_data_pins[5]).set_state(data[5]);
+        _gpio_device->pin(_data_pins[6]).set_state(data[6]);
+        _gpio_device->pin(_data_pins[7]).set_state(data[7]);
+
+        // set command pin value
+        _gpio_device->pin(_command_pin).set_state(!command);
+
+        // set send pin to high state
+        _gpio_device->pin(_send_pin).set_state(true);
+
+        // most operations need around 40 us for command to execute
+        // extra time for other commands is handled in places of sending
+        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+
+        // reset send pin to low state
+        _gpio_device->pin(_send_pin).set_state(false);
+
+    } else if(_i2c_device)
+    {
+        std::bitset<8> s(0x0);
+
+        // bit 0 is data indicator (opposite to command)
+        s[0] = !command;
+
+        // bit 3 is backlight (need to be send with each command)
+        s[3] = _backlight;
+
+        // first we send most significant bits
+        s[4] = data[4];
+        s[5] = data[5];
+        s[6] = data[6];
+        s[7] = data[7];
+
+        // write data to I2C device
+        _i2c_device->write(s);
+
+        // set execute bit to high and send (bit 2)
+        // we cannot send one bit so we need to send whole byte again
+        s[2] = 1;
+        _i2c_device->write(s);
+
+        // wait for command to execute (see send to GPIO device to get more information)
+        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+
+        // set execute bit to low and send
+        s[2] = 0;
+        _i2c_device->write(s);
+
+        // repeat for least significant bits
+        s[4] = data[0];
+        s[5] = data[1];
+        s[6] = data[2];
+        s[7] = data[3];
+
+        _i2c_device->write(s);
+
+        s[2] = 1;
+        _i2c_device->write(s);
+
+        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+
+        s[2] = 0;
+        _i2c_device->write(s);
+    };
+}
+
+
+
+
+//TODO This function works but this is not a proper initialization sequence - need fixing
+void Alphanumeric::screen_on()
+{
+    if(!_gpio_device && !_i2c_device)
+        throw rasplib::Exception(201, "Cannot turn on display: missing device");
+
+    if(_i2c_device)
+    {
+        // send reset command (directly)
+        _i2c_device->write(0b00001000);
+        _i2c_device->write(0b00001100);                             // flip execute bit
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));  // time needs tunning
+        _i2c_device->write(0b00001000);
+
+        // set 4bit mode (directly)
+        _i2c_device->write(0b00101000);
+        _i2c_device->write(0b00101100);                            // flip execute bit
+        std::this_thread::sleep_for(std::chrono::milliseconds(1)); // time needs tunning
+        _i2c_device->write(0b00101000);
+    }
+
+    // send default mode to screen
+    send(std::bitset<8>(std::string("00001111")), true);
+};
+
+
+
+
+void Alphanumeric::fill(unsigned short num)
+{
+    // in loop send empty characters (spaces) to screen
+    for(int i = 0; i < num; i++)
+        send(_map[' '], false);
+};
+
+
+
+
 void Alphanumeric::init(rasplib::gpio::GPIODevice *gpio_device,
                                unsigned short command_pin,
                                unsigned short send_pin,
                                std::vector<unsigned short> data_pins)
 {
+    // set GPIO parameters
     _gpio_device = gpio_device;
     _command_pin = command_pin;
     _send_pin = send_pin;
     _data_pins = data_pins;
 
-    display_on();
+    // turn screen on
+    screen_on();
+
+    // always clean a screen
     clean();
 
+    // init character map
     init_map();
 };
 
@@ -286,45 +338,72 @@ void Alphanumeric::init(rasplib::gpio::GPIODevice *gpio_device,
 
 void Alphanumeric::init(unsigned short bus, std::bitset<8> address)
 {
+    // open I2C device
     _i2c_device = std::make_unique<rasplib::i2c::I2CDevice>();
     _i2c_device->open(bus, address);
 
-    display_on();
+    // turn screen on
+    screen_on();
+
+    // always clean a screen
     clean();
 
+    // init character map
     init_map();
 };
 
 
 
 
-void Alphanumeric::set_mode(unsigned short lines, bool cursor, bool blink)
+void Alphanumeric::set_mode(bool full_screen, bool cursor, bool blink)
 {
     if(!_gpio_device && !_i2c_device)
         throw rasplib::Exception(201, "Cannot set number of lines: missing device");
 
-    _visible_lines = lines;
+    // remember new settings
+    _full_screen = full_screen;
     _cursor_visible = cursor;
     _cursor_blink = blink;
 
-    _mode[3] = lines > 1 ? true : false;
-    _mode[2] = 0;
-    _mode[5] = 1;
+    std::bitset<8> func(0x0);
 
-//TODO: propper 4bit support for all cases
-    if(_i2c_device)
-        _mode[4] = 0;
-    else
-        _mode[4] = 1;
+    // not important - may be 0 or 1
+    func[0] = 0;
+    // not important - may be 0 or 1
+    func[1] = 0;
+    // font size
+    func[2] = 0;
+    // set full_screen
+    func[3] = full_screen;
+    // 4/8 bit mode
+    func[4] = _i2c_device ? 0 : 1;
+    // always 1 (function set)
+    func[5] = 1;
+    // send new function set
+    send(func, true);
 
-    send(_mode, true);
+    std::bitset<8> disp(0x0);
 
-    std::bitset<8> c(0x0);
-    c[0] = blink;
-    c[1] = cursor;
-    c[2] = 1;
-    c[3] = 1;
-    send(c, true);
+    // blinking cursor
+    disp[0] = blink;
+    // cursor visibility
+    disp[1] = cursor;
+    // screen on (always 1)
+    disp[2] = 1;
+    // always 1 (display switch)
+    disp[3] = 1;
+    // set new display parameters
+    send(disp, true);
+};
+
+
+
+
+void Alphanumeric::set_physical(unsigned short columns, unsigned short lines, unsigned short virtual_line_length)
+{
+    _num_columns = columns;
+    _num_lines = lines;
+    _virtual_line_length = virtual_line_length;
 };
 
 
@@ -335,18 +414,11 @@ void Alphanumeric::clean()
     if(!_gpio_device && !_i2c_device)
         throw rasplib::Exception(201, "Cannot clear display: missing device");
 
-    send(std::bitset<8>(std::string("00000001")), true);
+    // send display clean command
+    send(std::bitset<8>(0x1), true);
+
+    // wait for a longer time for command to execute (min. 1.8 milliseconds for some displays)
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
-};
-
-
-
-
-
-void Alphanumeric::fill(unsigned short num)
-{
-    for(int i = 0; i < num; i++)
-        send(_map[' '], false);
 };
 
 
@@ -354,24 +426,44 @@ void Alphanumeric::fill(unsigned short num)
 
 void Alphanumeric::print(std::string text)
 {
+    //TODO this should as parameters not constant
+    int lines_addr[] = { 0x00, 0x40, 0x14, 0x54 };
+
     if(!_gpio_device && !_i2c_device)
         throw rasplib::Exception(302, "Cannot print text: missing device");
 
+    // remember num chars written to line
     int num_chars = 0;
+    int line = 0;
 
+    std::bitset<8> start_addr(0x80 | lines_addr[line]);
+    send(start_addr, true);
+
+    // iterate through text and sent each character to screen
     for(auto iter : text)
     {
+        // if character is new line move cursor to next line by filling with empty characters
         if(iter == '\n')
         {
-            fill(40 - num_chars);
+            fill(_virtual_line_length - num_chars);
             num_chars = 0;
+
+            line++;
+            if(line == _num_lines)
+                line = 0;
+
+            std::bitset<8> line_addr(0x80 | lines_addr[line]);
+            send(line_addr, true);
             continue;
         }
+
+        // send character
         send(_map[iter], false);
         num_chars++;
     }
 
-    fill(40 - num_chars);
+    // fill last line with empty character
+    fill(_virtual_line_length - num_chars);
 };
 
 

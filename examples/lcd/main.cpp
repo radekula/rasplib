@@ -41,7 +41,7 @@ void init_lcd(rasplib::display::Alphanumeric &lcd, rasplib::gpio::GPIODevice &gp
     unsigned short send_pin = 9;
 
     lcd.init(&gpio, command_pin, send_pin, data_pins);
-    lcd.set_mode(2, false, false);
+    lcd.set_mode(true, false, false);
 
     lcd.clean();
 };
