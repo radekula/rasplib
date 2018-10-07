@@ -248,7 +248,7 @@ void Alphanumeric::send(std::bitset<8> data, bool command)
         _i2c_device->write(s);
 
         // wait for command to execute (see send to GPIO device to get more information)
-        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
 
         // set execute bit to low and send
         s[2] = 0;
@@ -265,7 +265,7 @@ void Alphanumeric::send(std::bitset<8> data, bool command)
         s[2] = 1;
         _i2c_device->write(s);
 
-        std::this_thread::sleep_for(std::chrono::nanoseconds(40));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
 
         s[2] = 0;
         _i2c_device->write(s);
@@ -417,9 +417,10 @@ void Alphanumeric::clean()
 
     // send display clean command
     send(std::bitset<8>(0x1), true);
+    _current_text="";
 
     // wait for a longer time for command to execute (min. 1.8 milliseconds for some displays)
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
 };
 
 
@@ -456,6 +457,9 @@ void Alphanumeric::print(std::string text)
         for(auto iter : new_line)
         {
             curr_char++;
+            if(curr_char >= _virtual_line_length)
+                break;
+
             if(curr_char < old_size)
             {
                 if(new_line[curr_char] == old_line[curr_char])
@@ -486,6 +490,13 @@ void Alphanumeric::print(std::string text)
     };
 
     _current_text = text;
+};
+
+
+
+void Alphanumeric::backlight(bool enable)
+{
+    _backlight = enable;
 };
 
 

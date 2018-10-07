@@ -165,6 +165,11 @@ public:
      * Print text on a screen
      */
     void print(std::string text);
+
+    /**
+     * Turns backlight ON/OFF
+     */
+    void backlight(bool enable);
 };
 
 
