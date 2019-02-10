@@ -37,6 +37,12 @@ Clock::Clock()
     _pin = 0;
     _frequency = 0;
     _stop = false;
+
+    _before_handler_fun = 0;
+    _before_handler_data = 0;
+
+    _after_handler_fun = 0;
+    _after_handler_data = 0;
 };
 
 
@@ -65,18 +71,25 @@ void Clock::handle()
 
     while(!_stop)
     {
+        std::lock_guard<std::mutex> guard(_thread_mutex);
+
+        if(_before_handler_fun)
+            _before_handler_fun(this, _before_handler_data);
+
         _pin->set_state(1);
         std::this_thread::sleep_for(half_cycle);
         _pin->set_state(0);
         std::this_thread::sleep_for(half_cycle);
+
+        if(_after_handler_fun)
+            _after_handler_fun(this, _after_handler_data);
     };
 };
 
 
 
 
-void Clock::init(rasplib::gpio::GPIOPin *pin,
-                               unsigned long frequency)
+void Clock::init(rasplib::gpio::GPIOPin *pin,  unsigned long frequency)
 {
     if(frequency > 20000000)
         throw rasplib::Exception(FREQUENCY_NOT_SUPPORTED, "Frequency out of range");
@@ -116,6 +129,42 @@ void Clock::stop()
     _clock_thread.reset();
 };
 
+
+
+
+void Clock::set_function(std::function<void(Clock *, void *)> fun, bool after, void *data)
+{
+    std::lock_guard<std::mutex> guard(_thread_mutex);
+
+    if(after)
+    {
+        _after_handler_fun = fun;
+        _after_handler_data = data;
+    }
+    else
+    {
+        _before_handler_fun = fun;
+        _before_handler_data = data;
+    };
+};
+
+
+
+
+void Clock::remove_function(bool after)
+{
+    std::lock_guard<std::mutex> guard(_thread_mutex);
+    if(after)
+    {
+        _after_handler_fun = 0;
+        _after_handler_data = 0;
+    }
+    else
+    {
+        _before_handler_fun = 0;
+        _before_handler_data = 0;
+    };
+};
 
 }
 }

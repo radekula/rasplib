@@ -28,6 +28,7 @@
 #include <map>
 #include <thread>
 #include <mutex>
+#include <functional>
 #include <gpio/pin.hpp>
 
 
@@ -41,12 +42,20 @@ namespace clock {
 class Clock
 {
 private:
-    rasplib::gpio::GPIOPin *_pin;               //< Pointer to GPIO pin where clock will be outputted
-    unsigned long _frequency;
+    rasplib::gpio::GPIOPin *_pin;                               //< Pointer to GPIO pin where clock will be outputted
+    unsigned long _frequency;                                   //< Clock frequency
 
 private:
-    std::unique_ptr<std::thread> _clock_thread; //< Clock thread pointer
-    bool _stop;                                 //< Stop clock thread when true
+    std::unique_ptr<std::thread> _clock_thread;                 //< Clock thread pointer
+    std::mutex _thread_mutex;                                   //< Thread lock mutex
+    bool _stop;                                                 //< Stop clock thread when true
+
+private:
+    std::function<void(Clock *, void *)> _before_handler_fun;   //< External function to run before cycle
+    void *_before_handler_data;                                 //< Pointer to custom function data
+
+    std::function<void(Clock *, void *)> _after_handler_fun;    //< External dunction to run after cycle
+    void *_after_handler_data;                                  //< Pointer to custom function date
 
 private:
     /**
@@ -93,6 +102,23 @@ public:
      */
     void stop();
 
+public:
+    /**
+     * Set external handler function for clock events.
+     * Two functions can be registered: one for before and one for after clock events
+     *
+     * @param fun External function object
+     * @param after Indicates if function should be run before or after clock event
+     * @param data Pointer to custom data for function
+     */
+    void set_function(std::function<void(Clock *, void *)> fun, bool after = false, void *data = 0);
+
+    /**
+     * Removes function object handler
+     *
+     * @param after Indicates which handler should be removed (before or after)
+     */
+    void remove_function(bool after = false);
 };
 
 
