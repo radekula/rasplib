@@ -37,6 +37,7 @@
 #define INTERRUPT_NOT_FOUND             202
 #define I2C_BUS_ERROR                   301
 #define I2C_DEVICE_ERROR                302
+#define FREQUENCY_NOT_SUPPORTED         401
 
 
 #endif

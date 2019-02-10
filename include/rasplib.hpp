@@ -29,6 +29,6 @@
 #include "gpio/interrupts.hpp"
 #include "i2c/device.hpp"
 #include "display/alphanumeric.hpp"
-
+#include "clock/clock.hpp"
 
 #endif

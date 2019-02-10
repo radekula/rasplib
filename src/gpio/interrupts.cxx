@@ -98,7 +98,12 @@ void Interrupts::exit()
         return;
 
     _stop = true;
-    _interrupts_thread->join();
+
+    if(_interrupts_thread->joinable())
+        _interrupts_thread->join();
+
+    _interrupts_thread.reset();
+    _stop = false;
 
     // close all requests
     for(auto req : _requests)
