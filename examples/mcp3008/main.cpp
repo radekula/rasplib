@@ -42,18 +42,25 @@ private:
         if(_read_done)
             return;
 
+        static std::string out;
+        static std::string in;
+
         _cycle++;
 
         if(_cycle < 8)
         {
             // first 7 bits are 0
             _d_in->set_state(0);
+            in  += "0";
+            out += "x";
             return;
         }
         else if(_cycle == 8)
         {
             // 8th bit is start bit
             _d_in->set_state(1);
+            in  += "1";
+            out += "x";
             return;
         }
         else if(_cycle > 8 && _cycle < 13)
@@ -63,36 +70,51 @@ private:
             {
                 case 9:
                     _d_in->set_state(1);
+                    in  += "1";
+                    out += "x";
                     break;
                 case 10:
                     _d_in->set_state(_input & 1);
+                    in += std::to_string(_input & 1);
+                    out += "x";
                     break;
                 case 11:
                     _d_in->set_state(_input & 2);
+                    in += std::to_string(_input & 2);
+                    out += "x";
                     break;
                 case 12:
                     _d_in->set_state(_input & 4);
+                    in += std::to_string(_input & 4);
+                    out += "x";
                     break;
             };
             return;
         }
-        else if(_cycle > 12 && _cycle < 14)
+        else if(_cycle > 12 && _cycle < 15)
         {
+            in  += "x";
+            out += "x";
             // do nothing - waiting for results
             return;
         }
-        else if(_cycle > 13 && _cycle < 24)
+        else if(_cycle > 14 && _cycle < 24)
         {
             // reading result
-std::cout << std::to_string(_d_out->state());
             _value |= _d_out->state() << (25 - _cycle);
+            in  += "x";
+            out += std::to_string(_d_out->state());
             return;
         } 
         else if(_cycle > 23)
         {
             _cycle = 0;
             _read_done = true;
-std::cout << "\n";
+            std::cout << "IN : " << in << "\n";
+            std::cout << "OUT: " << out << std::endl;
+
+            in.clear();
+            out.clear();
         };
     };
 
@@ -147,12 +169,12 @@ int main(int argc, char *argv[])
         rasplib::clock::Clock clock;
 
         gpio.open("/dev/gpiochip0");
-        gpio.pin(0).map_to_line(23);   // CS
-        gpio.pin(1).map_to_line(27);   // D-in
-        gpio.pin(2).map_to_line(18);   // CLK
-        gpio.pin(3).map_to_line(17);   // D-out
+        gpio.pin(0).map_to_line(19);   // CS
+        gpio.pin(1).map_to_line(13);   // D-in
+        gpio.pin(2).map_to_line(6);   // CLK
+        gpio.pin(3).map_to_line(12);    // D-out
 
-        clock.init(&gpio.pin(2), 25000);
+        clock.init(&gpio.pin(2), 200000);
         clock.start();
 
         MCP3008 mcp;
