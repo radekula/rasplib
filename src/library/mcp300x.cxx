@@ -49,6 +49,21 @@ MCP300x::~MCP300x()
 
 
 
+unsigned short MCP300x::num_ports()
+{
+    switch(_type)
+    {
+        case MCP3004:
+            return 4;
+        case MCP3008:
+            return 8;
+    }
+    return 0;
+}
+
+
+
+
 void MCP300x::set_type(MCP300x_TYPE type)
 {
     _type = type;
