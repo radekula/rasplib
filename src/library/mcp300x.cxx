@@ -21,7 +21,7 @@
 
 
 #include "library/mcp300x.hpp"
-#include <exception/exception.hpp>
+#include "exception/exception.hpp"
 
 
 
@@ -103,12 +103,15 @@ unsigned short MCP300x::read(unsigned short port, bool differential, bool extend
 
     // setup device
     to_send.push_back(!differential);
-    to_send.push_back(port & 1);
-    to_send.push_back(port & 2);
     to_send.push_back(port & 4);
+    to_send.push_back(port & 2);
+    to_send.push_back(port & 1);
+
+    // calculate number of bits to receive
+    short receive_bits = 12 + (int) extended_resolution;
 
     // prepare extra bits (waiting for data)
-    for(short i = 0; i < 32; i++)
+    for(short i = 0; i < receive_bits; i++)
         to_send.push_back(0);
 
     // Enable device by setting state on cs pin
@@ -120,8 +123,8 @@ unsigned short MCP300x::read(unsigned short port, bool differential, bool extend
 
     for(auto val : ret)
     {
-        value = val;
-        value << 1;
+        value = value << 1;
+        value |= val;
     };
 
     return value;

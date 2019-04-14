@@ -87,7 +87,7 @@ void SPIDevice::handle()
     };
 
     _d_in->set_state(_send[_cycle]);
-    _received[_cycle] = _d_out;
+    _received.push_back((bool) _d_out->state());
 
     _cycle++;
 }
@@ -108,6 +108,8 @@ std::vector<bool> SPIDevice::send(std::vector<bool> data)
     // prepare
     _cycle = 0;
     _done = false;
+    _send = data;
+    _received.clear();
 
     // register function in clock object
     _clock->set_function(clock_handler, false, (void *) this);

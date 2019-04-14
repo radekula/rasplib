@@ -16,6 +16,11 @@ int main(int argc, char *argv[])
     rasplib::spi::SPIDevice spi;
     rasplib::library::MCP300x mcp;
 
+    short port = 0;
+
+    if(argc > 1)
+        port = std::stoi(argv[1]);
+
     try
     {
         // Setup GPIO device
@@ -36,10 +41,13 @@ int main(int argc, char *argv[])
         mcp.set_type(rasplib::library::MCP300x_TYPE::MCP3008);
         mcp.set_spi(&spi);
 
-        for(int i = 0; i < 100; i++)
+        std::cout << "\x1B[2J\x1B[H";
+
+        for(int i = 0; ; i++)
         {
-            std::cout << "Test " << std::to_string(i + 1) << ":" << std::endl;
-            std::cout << std::to_string(mcp.read(0)) << std::endl;
+            std::cout << "\r" << std::to_string(mcp.read(port, false, true));
+            std::cout << " [Test " << std::to_string(i + 1) << "]";
+            std::cout.flush();
             std::this_thread::sleep_for(std::chrono::seconds(1));
         };
     }

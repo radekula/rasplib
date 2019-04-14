@@ -1,4 +1,5 @@
 #!/bin/bash
 
 make
-LD_LIBRARY_PATH=/home/radek/Projekty/rasplib/build ./mcp3008.bin
+LIBDIR=`pwd`/../../build
+LD_LIBRARY_PATH="$LIBDIR" ./mcp3008.bin $1
