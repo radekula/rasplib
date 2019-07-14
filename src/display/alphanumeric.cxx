@@ -417,11 +417,13 @@ void Alphanumeric::clean()
 
     // send display clean command
     send(std::bitset<8>(0x1), true);
-    send(std::bitset<8>(0x2), true);
-    _current_text="";
-
-    // wait for a longer time for command to execute (min. 1.8 milliseconds for some displays)
     std::this_thread::sleep_for(std::chrono::milliseconds(3));
+
+    send(std::bitset<8>(0x2), true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+
+    set_mode(_full_screen, _cursor_visible, _cursor_blink);
+    _current_text="";
 };
 
 
