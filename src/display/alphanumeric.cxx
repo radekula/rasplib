@@ -413,10 +413,11 @@ void Alphanumeric::set_physical(unsigned short columns, unsigned short lines, un
 void Alphanumeric::clean()
 {
     if(!_gpio_device && !_i2c_device)
-        throw rasplib::Exception(201, "Cannot clear display: missing device");
+        throw rasplib::Exception(201, "Cannot clean display: missing device");
 
     // send display clean command
     send(std::bitset<8>(0x1), true);
+    send(std::bitset<8>(0x2), true);
     _current_text="";
 
     // wait for a longer time for command to execute (min. 1.8 milliseconds for some displays)
